@@ -1,12 +1,12 @@
-import { FormContainer, TaskInput, MinutesAmountInput, CounterButton } from "./styles"
+import { FormContainer, TaskInput, MinutesAmountInput, CounterButton, MinutesInputWrapper } from "./styles"
 import { useContext } from "react"
-import { useFormContext } from "react-hook-form"
+import { useFormContext, Controller } from "react-hook-form"
 import { CyclesContext } from "../../../../contexts/CyclesContext"
 import { Plus, Minus} from 'phosphor-react'
 
 export function NewCycleForm() {
   const { activeCycle } = useContext(CyclesContext)
-  const { register } = useFormContext()
+  const { control, register } = useFormContext()
 
   return(
     <FormContainer>
@@ -27,17 +27,53 @@ export function NewCycleForm() {
       </datalist>
 
       <label htmlFor="minutesAmount">durante</label>
-        <CounterButton aria-label="Diminuir tempo"> <Minus size={16}/> </CounterButton>
-        <MinutesAmountInput 
-          type='number'
-          id='minutesAmount'
-          placeholder="00"
-          disabled={!!activeCycle}
-          {...register('minutesAmount', {valueAsNumber: true})}
+      <MinutesInputWrapper>
+      <Controller 
+          control={control}
+          name="minutesAmount"
+          defaultValue={0}
+          render={({ field: { onChange, value } }) => (
+            <>
+              <CounterButton
+                type="button"
+                aria-label="Diminuir tempo" 
+                onClick={() => {
+                  // Evita valor negativo
+                  if (value > 0) onChange(Number(value) - 1)
+                }}
+              >
+                <Minus size={16} />
+              </CounterButton>
+              <MinutesAmountInput 
+                type='number'
+                id='minutesAmount'
+                placeholder="00"
+                disabled={!!activeCycle}
+                value={value}
+                onChange={(e) => {
+                  // Permite somente dois dígitos numéricos
+                  const newValue = e.target.value
+                  if (/^\d{0,2}$/.test(newValue)) {
+                    onChange(Number(newValue))
+                  }
+                }}
+              />
+              <CounterButton
+                type="button"
+                aria-label="Aumentar tempo" 
+                onClick={() => {
+                  // Limite superior: 99
+                  if (value < 60) onChange(Number(value) + 1)
+                }}
+              >
+                <Plus size={16} />
+              </CounterButton>
+            </>
+          )}
         />
-        <CounterButton aria-label="Aumentar tempo"> <Plus size={16}/> </CounterButton>
+      </MinutesInputWrapper>
          
-        <span>minutos.</span>
+      <span>minutos.</span>
     </FormContainer>
   )
 }

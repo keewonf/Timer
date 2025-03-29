@@ -39,17 +39,20 @@ export const TaskInput = styled(BaseInput)`
     display: none !important;
   }
 `
-export const InputWrapper = styled.div`
+
+export const MinutesInputWrapper = styled.div`
   display: flex;
   align-items: center;
-  width: 4rem;
-  height: 2.5rem;
   border-bottom: 2px solid ${({ theme }) => theme['gray-500']};
+  width: 4.35rem;
+  
 `
 
 export const MinutesAmountInput = styled(BaseInput)`
-  width: 4rem;
- text-align: center;
+  width: 100%;
+  text-align: center;
+  border-bottom: none;
+  //padding: 0 0.5rem;
   &::-webkit-outer-spin-button,
   &::-webkit-inner-spin-button {
   -webkit-appearance: none;
