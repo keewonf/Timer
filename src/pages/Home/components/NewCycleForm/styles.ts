@@ -40,12 +40,11 @@ export const TaskInput = styled(BaseInput)`
   }
 `
 
-export const MinutesInputWrapper = styled.div`
+export const NumberInputWrapper = styled.div`
   display: flex;
   align-items: center;
   border-bottom: 2px solid ${({ theme }) => theme['gray-500']};
   width: 4.35rem;
-  
 `
 
 export const MinutesAmountInput = styled(BaseInput)`
@@ -64,7 +63,6 @@ export const MinutesAmountInput = styled(BaseInput)`
     -moz-appearance: textfield;
   }
   appearance: none;
-  margin: 0;
 `
 
 export const CounterButton = styled.button`
@@ -82,4 +80,41 @@ export const CounterButton = styled.button`
     outline: none;
     box-shadow: none;
   }
+`
+
+
+export const RecurrenceWrapper = styled.div`
+  display: flex;
+  flex-basis: 100%;
+  margin-top: 0.5rem;
+  width: 0rem;
+  justify-content: center;
+  align-items: center;
+`   
+
+export const CheckboxInput = styled.input`  width: 1rem;
+  height: 1rem;
+  margin-left: 0.5rem;
+  margin-right: 0.5rem;
+  background: ${({ theme }) => theme['gray-900']};
+  cursor: pointer;
+`
+
+
+export const OcurrencesAmountInput = styled(BaseInput)`  width: 100%;
+  text-align: center;
+  border-bottom: none;
+  //padding: 0 0.5rem;
+  &::-webkit-outer-spin-button,
+  &::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+  }
+
+  & {
+    appearance: none;
+    -moz-appearance: textfield;
+  }
+  appearance: none;
+
 `

@@ -9,14 +9,15 @@ export interface Cycle {
   startDate: Date
   interruptedDate?: Date
   finishedDate?: Date
+  isRecurrring: boolean
+  recurrenceCount?: number
+  currentRecurrence?: number
 }
 
 interface CyclesState{
   cycles: Cycle[]
   activeCycleId: string | null
 }
-
-
 
 export function cyclesReducer(state: CyclesState, action: any) {
     switch(action.type) {
