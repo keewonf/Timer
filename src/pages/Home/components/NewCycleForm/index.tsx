@@ -15,32 +15,25 @@ import { Plus, Minus } from "phosphor-react";
 
 export function NewCycleForm() {
   const { activeCycle } = useContext(CyclesContext);
-  const { control, register } = useFormContext();
-
+  const { control, register, watch } = useFormContext();
+  
+  const isRecurringCycleSelected = watch('selectedRecurringCycleId');
+  
   return (
     <FormContainer>
       <label htmlFor="task">Vou trabalhar em</label>
       <TaskInput
         id="task"
-        list="task-suggestions"
         placeholder="Dê um nome para o seu projeto"
-        disabled={!!activeCycle}
+        disabled={!!activeCycle || !!isRecurringCycleSelected}
         {...register("task")}
       />
-
-      <datalist id="task-suggestions">
-        <option value="Projeto 1" />
-        <option value="Projeto 2" />
-        <option value="Projeto 3" />
-        <option value="Banana" />
-      </datalist>
 
       <label htmlFor="minutesAmount">durante</label>
       <NumberInputWrapper>
         <Controller
           control={control}
           name="minutesAmount"
-          defaultValue={0}
           render={({ field: { onChange, value } }) => (
             <>
               <CounterButton
@@ -50,6 +43,7 @@ export function NewCycleForm() {
                   // Evita valor negativo
                   if (value > 0) onChange(Number(value) - 1);
                 }}
+                disabled={!!activeCycle || !!isRecurringCycleSelected}
               >
                 <Minus size={16} />
               </CounterButton>
@@ -57,7 +51,7 @@ export function NewCycleForm() {
                 type="number"
                 id="minutesAmount"
                 placeholder="00"
-                disabled={!!activeCycle}
+                disabled={!!activeCycle || !!isRecurringCycleSelected}
                 value={value}
                 onChange={(e) => {
                   // Permite somente dois dígitos numéricos
@@ -74,6 +68,7 @@ export function NewCycleForm() {
                   // Limite superior: 99
                   if (value < 60) onChange(Number(value) + 1);
                 }}
+                disabled={!!activeCycle || !!isRecurringCycleSelected}
               >
                 <Plus size={16} />
               </CounterButton>
@@ -86,7 +81,6 @@ export function NewCycleForm() {
         <Controller
           control={control}
           name="isRecurring"
-          defaultValue={false}
           render={({ field: { onChange, value } }) => (
             <>
               <label htmlFor="isRecurring">Tarefa recorrente?</label>
@@ -95,15 +89,15 @@ export function NewCycleForm() {
                 id="isRecurring"
                 checked={value}
                 onChange={(e) => onChange(e.target.checked)}
+                disabled={!!activeCycle || !!isRecurringCycleSelected}
               />
 
               {value && (
                 <>
-                  <label htmlFor="recurrenceCount" style={{ marginRight: '0.5rem' }}>Quantos dias:</label>
+                  <label htmlFor="recurrenceCount" style={{ marginRight: '0.5rem' }}>Quantas vezes:</label>
                   <Controller
                     control={control}
                     name="recurrenceCount"
-                    defaultValue={2}
                     render={({ field: { onChange, value } }) => (
                       <>
                         <NumberInputWrapper>
@@ -114,6 +108,7 @@ export function NewCycleForm() {
                               // Evita valor negativo
                               if (value > 2) onChange(Number(value) - 1);
                             }}
+                            disabled={!!activeCycle || !!isRecurringCycleSelected}
                           >
                             <Minus size={16} />
                           </CounterButton>
@@ -129,7 +124,7 @@ export function NewCycleForm() {
                                 onChange(Number(newValue));
                               }
                             }}
-                            disabled={!!activeCycle}
+                            disabled={!!activeCycle || !!isRecurringCycleSelected}
                           />
                           <CounterButton
                             type="button"
@@ -137,6 +132,7 @@ export function NewCycleForm() {
                             onClick={() => {
                               if (value < 7) onChange(Number(value) + 1);
                             }}
+                            disabled={!!activeCycle || !!isRecurringCycleSelected}
                           >
                             <Plus size={16} />
                           </CounterButton>

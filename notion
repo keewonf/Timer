@@ -1,0 +1,385 @@
+# Implementação de Ciclos Recorrentes no Timer
+
+## Visão Geral
+Implementamos uma funcionalidade que permite criar tarefas recorrentes com um número específico de repetições. O usuário pode:
+- Marcar uma tarefa como recorrente
+- Definir quantas vezes a tarefa deve ser repetida
+- Ver quais tarefas recorrentes estão em andamento
+- Selecionar tarefas recorrentes para continuar
+- Visualizar o progresso da tarefa (X/Y completadas)
+
+## Passo 1: Modificação da Interface Cycle
+**Arquivo:** `src/reducers/cycles/reducer.ts`
+
+Adicionamos novos campos à interface `Cycle` para suportar tarefas recorrentes:
+
+```typescript
+export interface Cycle {
+  id: string
+  task: string
+  minutesAmount: number
+  startDate: Date
+  interruptedDate?: Date
+  finishedDate?: Date
+  isRecurring: boolean        // Indica se o ciclo é recorrente
+  recurrenceCount?: number    // Quantas vezes o ciclo deve ser repetido
+  completedRecurrences?: number // Quantas vezes já foi completado
+}
+```
+
+## Passo 2: Atualização do CyclesContext
+**Arquivo:** `src/contexts/CyclesContext.tsx`
+
+1. Atualizamos a interface `CreateCycleData` para incluir os campos de recorrência:
+
+```typescript
+interface CreateCycleData {
+  task: string
+  minutesAmount: number
+  isRecurring?: boolean
+  recurrenceCount?: number
+  selectedRecurringCycleId?: string | null
+}
+```
+
+2. Adicionamos uma função para obter ciclos recorrentes disponíveis:
+
+```typescript
+function getAvailableRecurringCycles() {
+  // Retorna apenas ciclos recorrentes que não foram finalizados e não foram interrompidos
+  return cycles.filter((cycle) => 
+    cycle.isRecurring && 
+    !cycle.finishedDate && 
+    !cycle.interruptedDate &&
+    ((cycle.completedRecurrences || 0) < (cycle.recurrenceCount || 0))
+  );
+}
+```
+
+3. Modificamos a função `createNewCycle` para gerenciar ciclos recorrentes:
+
+```typescript
+function createNewCycle(data: CreateCycleData) {
+  // Verifica se está continuando um ciclo recorrente ou criando um novo
+  if (data.selectedRecurringCycleId) {
+    // Busca o ciclo recorrente selecionado
+    const selectedCycle = cycles.find(cycle => cycle.id === data.selectedRecurringCycleId);
+    
+    if (selectedCycle) {
+      // Não precisa criar um novo ciclo, apenas continua o existente
+      const updatedCycle: Cycle = {
+        ...selectedCycle,
+        startDate: new Date(),
+      };
+      
+      dispatch(addNewCycleAction(updatedCycle));
+    }
+  } else {
+    // Cria um novo ciclo
+    const newCycle: Cycle = {
+      id: String(new Date().getTime()),
+      task: data.task,
+      minutesAmount: data.minutesAmount,
+      startDate: new Date(),
+      isRecurring: data.isRecurring || false,
+      recurrenceCount: data.isRecurring ? data.recurrenceCount : undefined,
+      completedRecurrences: 0, // Inicializa sempre com 0
+    };
+    
+    dispatch(addNewCycleAction(newCycle));
+  }
+
+  setAmountSecondsPassed(0);
+}
+```
+
+4. Adicionamos a função ao contexto:
+
+```typescript
+return (
+  <CyclesContext.Provider value={{
+    cycles, 
+    activeCycle, 
+    activeCycleId, 
+    markCurrentCycleAsFinished, 
+    amountSecondsPassed, 
+    setSecondsPassed, 
+    createNewCycle, 
+    interruptCurrentCycle,
+    getAvailableRecurringCycles
+  }}>
+  {children}
+  </CyclesContext.Provider>
+)
+```
+
+## Passo 3: Atualização do Reducer
+**Arquivo:** `src/reducers/cycles/reducer.ts`
+
+1. Modificamos o reducer para gerenciar adequadamente o estado dos ciclos:
+
+```typescript
+case ActionTypes.ADD_NEW_CYCLE:
+  return produce(state, (draft) => {
+    // Verifica se é um ciclo recorrente existente sendo continuado
+    const existingCycleIndex = draft.cycles.findIndex(
+      cycle => cycle.id === action.payload.newCycle.id
+    );
+    
+    if (existingCycleIndex >= 0) {
+      // Atualiza o ciclo existente
+      draft.cycles[existingCycleIndex] = action.payload.newCycle;
+    } else {
+      // Adiciona um novo ciclo
+      draft.cycles.push(action.payload.newCycle);
+    }
+    
+    draft.activeCycleId = action.payload.newCycle.id;
+  });
+```
+
+2. Atualizamos a lógica para marcar um ciclo como finalizado:
+
+```typescript
+case ActionTypes.MARK_CURRENT_CYCLE_AS_FINISHED:  {
+  // ...código existente...
+  return produce(state, (draft) => {
+    const cycle = draft.cycles[currentCycleIndex];
+    
+    if (cycle.isRecurring) {
+      // Incrementar o contador de recorrências completadas
+      cycle.completedRecurrences = (cycle.completedRecurrences || 0) + 1;
+      
+      // Verificar se todas as recorrências foram completadas
+      if (cycle.completedRecurrences >= (cycle.recurrenceCount || 1)) {
+        // Completou todas as recorrências
+        cycle.finishedDate = new Date();
+      }
+    } else {
+      // Para ciclos não recorrentes
+      cycle.finishedDate = new Date();
+    }
+    
+    draft.activeCycleId = null;
+  })
+}
+```
+
+## Passo 4: Criação do Componente RecurringCyclesBar
+**Arquivo:** `src/pages/Home/components/RecurringCyclesBar/index.tsx`
+
+Criamos um novo componente para exibir os ciclos recorrentes em andamento:
+
+```typescript
+export function RecurringCyclesBar({ onSelectCycle, selectedCycleId }: RecurringCyclesBarProps) {
+  const { getAvailableRecurringCycles } = useContext(CyclesContext);
+  
+  const availableCycles = getAvailableRecurringCycles();
+  
+  if (availableCycles.length === 0) {
+    return null;
+  }
+  
+  return (
+    <RecurringCyclesContainer>
+      <h4>Ciclos recorrentes em andamento:</h4>
+      <div>
+        {availableCycles.map(cycle => (
+          <RecurringCycleItem 
+            key={cycle.id}
+            onClick={() => onSelectCycle(cycle.id)}
+            selected={selectedCycleId === cycle.id}
+          >
+            {cycle.task} ({cycle.completedRecurrences || 0}/{cycle.recurrenceCount})
+          </RecurringCycleItem>
+        ))}
+      </div>
+    </RecurringCyclesContainer>
+  );
+}
+```
+
+## Passo 5: Criação dos Estilos para o RecurringCyclesBar
+**Arquivo:** `src/pages/Home/components/RecurringCyclesBar/styles.ts`
+
+```typescript
+export const RecurringCyclesContainer = styled.div`
+  width: 100%;
+  margin-bottom: 2rem;
+  padding: 1rem;
+  border-radius: 8px;
+  background: ${(props) => props.theme['gray-700']};
+  
+  h4 {
+    color: ${(props) => props.theme['gray-100']};
+    margin-bottom: 0.75rem;
+  }
+  
+  div {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+`;
+
+interface RecurringCycleItemProps {
+  selected: boolean;
+}
+
+export const RecurringCycleItem = styled.button<RecurringCycleItemProps>`
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  background: ${(props) => props.selected ? props.theme['green-500'] : props.theme['gray-600']};
+  color: ${(props) => props.theme['gray-100']};
+  border: 1px solid ${(props) => props.selected ? props.theme['green-500'] : props.theme['gray-500']};
+  cursor: pointer;
+  font-size: 0.875rem;
+  
+  &:hover {
+    background: ${(props) => props.selected ? props.theme['green-500'] : props.theme['gray-500']};
+  }
+`;
+```
+
+## Passo 6: Atualização do Componente Home
+**Arquivo:** `src/pages/Home/index.tsx`
+
+1. Atualizamos o esquema de validação para incluir campos de recorrência:
+
+```typescript
+const newCycleFormValidationSchema = zod.object({
+  task: zod.string().min(1, 'Informe a tarefa'),
+  minutesAmount: zod.number().min(1, 'O ciclo precisa ser de no mínimo 1 minuto').max(60, 'O ciclo precisa ser de no máximo 60 minutos'),
+  isRecurring: zod.boolean().optional(),
+  recurrenceCount: zod.number().optional(),
+  selectedRecurringCycleId: zod.string().nullable(),
+})
+```
+
+2. Adicionamos estado para gerenciar o ciclo recorrente selecionado:
+
+```typescript
+const [selectedRecurringCycleId, setSelectedRecurringCycleId] = useState<string | null>(null)
+```
+
+3. Adicionamos lógica para preencher o formulário quando um ciclo é selecionado:
+
+```typescript
+useEffect(() => {
+  if (selectedRecurringCycleId) {
+    const selectedCycle = cycles.find(cycle => cycle.id === selectedRecurringCycleId)
+    
+    if (selectedCycle) {
+      setValue('task', selectedCycle.task)
+      setValue('minutesAmount', selectedCycle.minutesAmount)
+      setValue('isRecurring', selectedCycle.isRecurring)
+      setValue('recurrenceCount', selectedCycle.recurrenceCount)
+      setValue('selectedRecurringCycleId', selectedCycle.id)
+    }
+  } else {
+    // Limpa o valor quando nenhum ciclo está selecionado
+    setValue('selectedRecurringCycleId', null)
+  }
+}, [selectedRecurringCycleId, cycles, setValue])
+```
+
+4. Adicionamos função para gerenciar a seleção de ciclos:
+
+```typescript
+function handleSelectRecurringCycle(cycleId: string) {
+  // Se já está selecionado, desmarca
+  if (selectedRecurringCycleId === cycleId) {
+    setSelectedRecurringCycleId(null)
+  } else {
+    setSelectedRecurringCycleId(cycleId)
+  }
+}
+```
+
+5. Integramos o componente RecurringCyclesBar:
+
+```tsx
+<HomeContainer>
+  <RecurringCyclesBar 
+    onSelectCycle={handleSelectRecurringCycle} 
+    selectedCycleId={selectedRecurringCycleId}
+  />
+  
+  <form onSubmit={handleSubmit(handleCreateNewCycle, handleFormErrors)} action="">
+    {/* resto do código */}
+  </form>
+</HomeContainer>
+```
+
+## Passo 7: Atualização do Componente NewCycleForm
+**Arquivo:** `src/pages/Home/components/NewCycleForm/index.tsx`
+
+Modificamos o componente para desabilitar campos quando um ciclo recorrente é selecionado:
+
+```typescript
+const isRecurringCycleSelected = watch('selectedRecurringCycleId');
+
+return (
+  <FormContainer>
+    <label htmlFor="task">Vou trabalhar em</label>
+    <TaskInput
+      id="task"
+      placeholder="Dê um nome para o seu projeto"
+      disabled={!!activeCycle || !!isRecurringCycleSelected}
+      {...register("task")}
+    />
+
+    {/* Campos similares com disabled={!!activeCycle || !!isRecurringCycleSelected} */}
+  </FormContainer>
+);
+```
+
+## Passo 8: Atualização da Página de Histórico
+**Arquivo:** `src/pages/History/index.tsx`
+
+Adicionamos a exibição do progresso das tarefas recorrentes no histórico:
+
+```typescript
+// Função para formatar o nome da tarefa com a informação de recorrência
+function formatTaskName(cycle) {
+  if (cycle.isRecurring && cycle.recurrenceCount) {
+    return `${cycle.task} (${cycle.completedRecurrences || 0}/${cycle.recurrenceCount})`;
+  }
+  return cycle.task;
+}
+
+// Uso no componente
+<td>{formatTaskName(cycle)}</td>
+```
+
+## Principais Desafios Resolvidos
+
+1. **Gerenciamento de Estado Complexo**: Implementamos uma lógica para rastrear o progresso das tarefas recorrentes, incluindo quantas vezes foram completadas e quantas faltam.
+
+2. **Continuação de Ciclos**: Modificamos a lógica para permitir a continuação de ciclos recorrentes existentes em vez de sempre criar novos ciclos.
+
+3. **Seleção por ID**: Implementamos a seleção de ciclos recorrentes por ID em vez de nome para evitar problemas com tarefas de mesmo nome.
+
+4. **Interface Visual**: Criamos uma barra dedicada para mostrar os ciclos recorrentes em andamento, permitindo seleção visual.
+
+5. **Preenchimento Automático**: Implementamos o preenchimento automático do formulário quando um ciclo recorrente é selecionado.
+
+6. **Controles Desabilitados**: Desabilitamos todos os controles de entrada quando um ciclo recorrente é selecionado, preservando as propriedades originais.
+
+7. **Visualização do Progresso**: Melhoramos a visualização do histórico para mostrar claramente o progresso das tarefas recorrentes (X/Y).
+
+8. **Tratamento de Interrupções**: Garantimos que ciclos interrompidos não apareçam mais na lista de ciclos disponíveis.
+
+## Conclusão
+
+Esta implementação oferece uma experiência completa para gerenciar tarefas recorrentes no timer, permitindo ao usuário:
+
+1. Criar facilmente ciclos recorrentes
+2. Visualizar ciclos recorrentes em andamento
+3. Continuar ciclos recorrentes de onde parou
+4. Acompanhar o progresso das tarefas
+5. Ver claramente quais tarefas foram concluídas, interrompidas ou estão em andamento
+
+O código foi estruturado de forma modular e reutilizável, facilitando a manutenção e a adição de novos recursos no futuro.
